@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="W3 Compressor - Free online image compressor, photo to PDF converter and MB KB Bytes converter.">
+  <meta name="keywords" content="image compressor, photo to pdf, MB to KB, bytes converter, W3 Compressor">
+  <meta name="author" content="W3 Compressor">
+  <title>W3 Compressor | Image to PDF & Image Compressor</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0d1020;color:#f7f7fb}
+    header{padding:28px 18px;text-align:center;background:linear-gradient(120deg,#21134b,#402080,#172b5b)}
+    header h1{margin:0;font-size:clamp(30px,6vw,46px)}header p{color:#ddd;margin:10px 0 0}
+    main{max-width:1000px;margin:28px auto;padding:0 16px}
+    .tabs{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:20px}
+    button,.tab{border:0;border-radius:10px;padding:12px 17px;background:#292e48;color:white;cursor:pointer;font-weight:700}
+    button.primary,.tab.active{background:#8b5cf6}.panel{display:none;background:#171b30;border:1px solid #303653;border-radius:18px;padding:22px;margin-bottom:20px}
+    .panel.active{display:block}.panel h2{margin-top:0}.hint{color:#b8bfd5;font-size:14px;line-height:1.5}
+    input,select{max-width:100%;padding:12px;border-radius:9px;border:1px solid #414968;background:#0e1326;color:white;margin:8px 6px 8px 0}
+    .actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}.result{margin-top:15px;padding:13px;background:#10172b;border-radius:10px;overflow-wrap:anywhere}
+    .filelist{color:#c9d0e8;font-size:14px;margin-top:10px}footer{text-align:center;color:#929bb8;padding:25px}
+    a{color:#c4a7ff}button:focus,input:focus,select:focus{outline:2px solid #a78bfa;outline-offset:2px}
+    @media(max-width:600px){.panel{padding:17px}.tabs button{flex:1}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>W3 Compressor</h1>
+  <p>Free online tools — compress images, convert photos to PDF and convert file sizes</p>
+</header>
+<main>
+  <nav class="tabs" aria-label="Tools">
+    <button class="tab active" data-tab="compress">Image Compressor</button>
+    <button class="tab" data-tab="pdf">Photo to PDF</button>
+    <button class="tab" data-tab="size">MB / KB / Bytes</button>
+  </nav>
+
+  <section class="panel active" id="compress">
+    <h2>Image Compressor</h2>
+    <p class="hint">Choose an image, select a target size in KB, then compress it in your browser.</p>
+    <input type="file" id="imageInput" accept="image/*">
+    <label for="targetKB">Target size (KB):</label>
+    <input type="number" id="targetKB" min="1" value="200">
+    <div class="actions"><button class="primary" id="compressBtn">Compress Image</button></div>
+    <div class="result" id="compressResult" aria-live="polite">Your compressed image will appear here.</div>
+  </section>
+
+  <section class="panel" id="pdf">
+    <h2>Photo to PDF Converter</h2>
+    <p class="hint">Select one or more photos. They will be combined into one PDF file. Processing happens in your browser.</p>
+    <input type="file" id="pdfImages" accept="image/*" multiple>
+    <label for="pageSize">PDF page size:</label>
+    <select id="pageSize"><option value="a4">A4</option><option value="letter">Letter</option><option value="fit">Fit image</option></select>
+    <div class="filelist" id="selectedFiles">No photos selected.</div>
+    <div class="actions"><button class="primary" id="makePdf">Convert to PDF</button></div>
+    <div class="result" id="pdfResult" aria-live="polite">Your PDF will download after conversion.</div>
+  </section>
+
+  <section class="panel" id="size">
+    <h2>MB / KB / Bytes Converter</h2>
+    <p class="hint">Convert file sizes using 1 KB = 1024 Bytes and 1 MB = 1024 KB.</p>
+    <input type="number" id="sizeValue" min="0" step="any" value="1" aria-label="Value">
+    <select id="sizeUnit" aria-label="Input unit">
+      <option value="B">Bytes</option><option value="KB">KB</option><option value="MB" selected>MB</option><option value="GB">GB</option>
+    </select>
+    <div class="actions"><button class="primary" id="convertSize">Convert Size</button></div>
+    <div class="result" id="sizeResult" aria-live="polite">Enter a value and press Convert Size.</div>
+  </section>
+</main>
+<footer>© <span id="year"></span> W3 Compressor · Free browser-based tools</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === btn));
+    document.querySelectorAll('.panel').forEach(x => x.classList.toggle('active', x.id === btn.dataset.tab));
+  }));
+
+  const imageInput = document.getElementById('imageInput');
+  document.getElementById('compressBtn').addEventListener('click', async () => {
+    const file = imageInput.files[0], target = Number(document.getElementById('targetKB').value);
+    const out = document.getElementById('compressResult');
+    if (!file) { out.textContent = 'Please choose an image first.'; return; }
+    if (!target || target < 1) { out.textContent = 'Please enter a target size greater than 0 KB.'; return; }
+    out.textContent = 'Compressing...';
+    try {
+      const img = await loadImage(file);
+      const canvas = document.createElement('canvas');
+      let scale = Math.min(1, 2400 / Math.max(img.width, img.height));
+      canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      let quality = 0.92, blob;
+      for (let i = 0; i < 12; i++) {
+        blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (!blob || blob.size <= target * 1024) break;
+        quality -= 0.07;
+        if (quality < 0.2) {
+          quality = 0.75; canvas.width = Math.round(canvas.width * 0.85); canvas.height = Math.round(canvas.height * 0.85);
+          const resized = document.createElement('canvas'); resized.width = canvas.width; resized.height = canvas.height;
+          resized.getContext('2d').drawImage(img, 0, 0, resized.width, resized.height);
+          ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(resized,0,0);
+        }
+      }
+      if (!blob) throw new Error('Could not compress this image.');
+      const url = URL.createObjectURL(blob);
+      out.innerHTML = `Original: ${(file.size/1024).toFixed(1)} KB<br>Compressed: ${(blob.size/1024).toFixed(1)} KB<br><a href="${url}" download="w3-compressed.jpg">Download compressed image</a>`;
+    } catch(e) { out.textContent = e.message || 'Compression failed.'; }
+  });
+
+  function loadImage(file) {
+    return new Promise((resolve,reject) => {
+      const img = new Image(), url = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => reject(new Error('Unable to open this image.'));
+      img.src = url;
+    });
+  }
+
+  const pdfImages = document.getElementById('pdfImages');
+  pdfImages.addEventListener('change', () => {
+    document.getElementById('selectedFiles').textContent =
+      pdfImages.files.length ? [...pdfImages.files].map(f => f.name).join(' · ') : 'No photos selected.';
+  });
+  document.getElementById('makePdf').addEventListener('click', async () => {
+    const files = [...pdfImages.files], out = document.getElementById('pdfResult');
+    if (!files.length) { out.textContent = 'Please select at least one photo.'; return; }
+    if (!window.jspdf) { out.textContent = 'PDF library could not load. Check your internet connection and try again.'; return; }
+    out.textContent = 'Creating PDF...';
+    try {
+      const { jsPDF } = window.jspdf, choice = document.getElementById('pageSize').value;
+      const pdf = new jsPDF({orientation:'portrait', unit:'mm', format: choice === 'letter' ? 'letter' : 'a4'});
+      for (let i=0; i<files.length; i++) {
+        const img = await loadImage(files[i]);
+        let pageW, pageH;
+        if (choice === 'fit') { pageW = img.width * 0.264583; pageH = img.height * 0.264583; }
+        else { pageW = pdf.internal.pageSize.getWidth(); pageH = pdf.internal.pageSize.getHeight(); }
+        if (i) pdf.addPage(choice === 'letter' ? 'letter' : choice === 'a4' ? 'a4' : [pageW,pageH]);
+        if (choice === 'fit' && i === 0) { /* first page uses image dimensions below */ }
+        const scale = Math.min(pageW/img.width, pageH/img.height);
+        const w = img.width*scale, h = img.height*scale;
+        const x = (pageW-w)/2, y = (pageH-h)/2;
+        const canvas = document.createElement('canvas'); canvas.width=img.width; canvas.height=img.height;
+        canvas.getContext('2d').drawImage(img,0,0);
+        pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',x,y,w,h);
+      }
+      pdf.save('W3-Compressor-photos.pdf'); out.textContent = 'PDF created and downloaded successfully.';
+    } catch(e) { out.textContent = 'Could not create PDF: ' + (e.message || 'Unknown error'); }
+  });
+
+  document.getElementById('convertSize').addEventListener('click', () => {
+    const value = Number(document.getElementById('sizeValue').value);
+    const unit = document.getElementById('sizeUnit').value, out = document.getElementById('sizeResult');
+    if (!Number.isFinite(value) || value < 0) { out.textContent = 'Enter a valid non-negative number.'; return; }
+    const bytes = value * ({B:1, KB:1024, MB:1024**2, GB:1024**3}[unit]);
+    out.innerHTML = `<strong>${value} ${unit}</strong><br>${bytes.toLocaleString(undefined,{maximumFractionDigits:4})} Bytes<br>${(bytes/1024).toLocaleString(undefined,{maximumFractionDigits:4})} KB<br>${(bytes/1024**2).toLocaleString(undefined,{maximumFractionDigits:6})} MB<br>${(bytes/1024**3).toLocaleString(undefined,{maximumFractionDigits:8})} GB`;
+  });
+</script>
+</body>
+</html>
